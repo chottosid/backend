@@ -42,12 +42,3 @@ class User(models.Model):
     password = models.CharField(max_length=255)  # Use password hashing
     profile_picture = models.TextField(null=True, blank=True)
     user_name = models.CharField(max_length=100, unique=True)
-
-class PendingRequest(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='pending_requests')
-    assistant = models.ForeignKey('Assistant', null=True, blank=True, on_delete=models.SET_NULL)
-    latitude = models.FloatField()
-    longitude = models.FloatField()
-    status = models.CharField(max_length=20, default='pending')
-    notified = models.IntegerField(default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
