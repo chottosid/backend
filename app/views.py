@@ -21,16 +21,21 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     
     return distance * 1000  # Convert to meters
 
+'''
+user login
+data = {'userName': 'test', 'password': 'test'}
+on success returns {'user_id': 1, 'name': 'test', 'email': ''}
+on failure returns {'error': 'Invalid credentials'}
+'''
 @csrf_exempt
 def user_login(request):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            email = data.get('email')
+            userName = data.get('userName')
             password = data.get('password')
-            
             try:
-                user = User.objects.get(email=email)
+                user = User.objects.get(user_name=userName)
                 
                 # Check password (assuming passwords are hashed)
                 if check_password(password, user.password):
@@ -49,7 +54,8 @@ def user_login(request):
             return JsonResponse({'error': 'Invalid JSON'}, status=400)
     
     return JsonResponse({'error': 'Invalid request method'}, status=405)
-
+'''
+'''
 @csrf_exempt
 def user_register(request):
     if request.method == 'POST':
@@ -89,21 +95,37 @@ def send_request(request):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            
+            print(data)
             try:
                 user = User.objects.get(user_id=data.get('userId'))
-                
+                print(user.user_name)
                 pending_request = PendingRequest.objects.create(
-                    user=user,
-                    latitude=data.get('latitude'),
-                    longitude=data.get('longitude'),
+                    user_id=user.user_id,
+                    type=data.get('type'),
+                    description=data.get('message'),
+                    latitude=float(data.get('latitude')),
+                    longitude=float(data.get('longitude')),
+                    created_at=timezone.now(),
                     status='pending',
-                    notified=0
+                    notified=False
                 )
-                
+                print(pending_request.request_id)
+    #             class PendingRequest(models.Model):
+    # request_id = models.AutoField(primary_key=True)
+    # user_id = models.IntegerField()
+    # type = models.CharField(max_length=255)
+    # description = models.CharField(max_length=255, null=True, blank=True)
+    # created_at = models.DateTimeField(auto_now_add=True, null=True)
+    # latitude = models.FloatField(null=True, blank=True)
+    # longitude = models.FloatField(null=True, blank=True)
+    # updated_at = models.DateTimeField(null=True, blank=True)
+    # fulfilled_at = models.DateTimeField(null=True, blank=True)
+    # assistant_id = models.IntegerField(null=True, blank=True)
+    # status = models.CharField(max_length=255, null=True, blank=True)
+    # notified = models.BooleanField(default=False)
                 return JsonResponse({
                     'message': 'Request sent',
-                    'request_id': pending_request.id
+                    'request_id': pending_request.request_id
                 }, status=201)
             
             except User.DoesNotExist:
