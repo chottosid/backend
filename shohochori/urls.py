@@ -17,15 +17,31 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from app import views
-
+from django.conf import settings
+from django.conf.urls.static import static
 urlpatterns = [
     path('user/login/', views.user_login),
     path('user/register/', views.user_register),
     path('pending/send/', views.send_request),
-    path('pending/requests/', views.get_pending_requests),
+    path('pending/requests/<int:assistantId>/', views.get_pending_requests),
     path('pending/confirm/', views.confirm_request),
     path('pending/notification/<int:user_id>/', views.get_notification),
     path('pending/check/<int:user_id>/', views.check_request),
     path('assistant/login/', views.assistant_login),
     path('assistant/register/', views.assistant_register),
+    path('doctor/login/', views.doctor_login),
+    path('doctor/register/', views.doctor_register),
+    path('doctor/appointment/add/', views.add_appointment),
+    path('doctor/appointment/confirm/', views.confirm_appointment),
+    path('doctor/appointment/user/<int:user_id>/', views.get_user_appointments),
+    path('doctor/appointment/doctor/<int:doctor_id>/', views.get_doctor_appointments),
+    path('doctor/all/', views.get_doctors),
+    path("assistant/all/", views.get_assistants),
+    path("pending/requests/user/<int:user_id>/", views.get_pending_requests_user),
+    path("pending/completed/", views.completed_request)
 ]
+
+# Serve media files
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
