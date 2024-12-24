@@ -152,7 +152,19 @@ def send_request(request):
 def get_pending_requests_user(request,user_id):
     '''
         GET pending/requests/user/1
-
+        returns
+        [
+            {
+                "requestId": 1,
+                "userId": 1,
+                "userName": "name",
+                "category": "category",
+                "description": "description",
+                "latitude": "latitude",
+                "longitude": "longitude",
+                "created_at": "2022-01-01T00:00:00Z"
+            }
+        ]
     '''
     if request.method == 'GET':
         user = User.objects.get(user_id=user_id)
@@ -592,30 +604,46 @@ def get_doctor_appointments(request, doctor_id):
     Get appointments for a doctor
     GET doctor/appointment/doctor/1/
     '''
-    try:
-        doctor = Doctor.objects.get(doctor_id=doctor_id)
-        appointments = Appointment.objects.filter(doctor=doctor)
-        if not appointments:
-            return JsonResponse({'message': 'No appointments found'}, status=204)
-        appointment_list = [{
-            'appointment_id': appointment.appointment_id,
-            'user_id': appointment.user.user_id,
-            'user_name': appointment.user.name,
-            'date': appointment.date,
-            'time': appointment.time,
-            'status': appointment.status
-        } for appointment in appointments]
-        return JsonResponse(appointment_list, safe=False, status=200)
-    except Doctor.DoesNotExist:
-        return JsonResponse({'error': 'Doctor not found'}, status=404)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+    if request.method == 'GET':
+        try:
+            doctor = Doctor.objects.get(doctor_id=doctor_id)
+            appointments = Appointment.objects.filter(doctor=doctor)
+            if not appointments:
+                return JsonResponse({'message': 'No appointments found'}, status=204)
+            appointment_list = [{
+                'appointment_id': appointment.appointment_id,
+                'user_id': appointment.user.user_id,
+                'user_name': appointment.user.name,
+                'date': appointment.appointment_time.strftime('%Y-%m-%d'),
+                'time': appointment.appointment_time.strftime('%H:%M'),
+                'status': appointment.status
+            } for appointment in appointments]
+            return JsonResponse(appointment_list, safe=False, status=200)
+        except Doctor.DoesNotExist:
+            return JsonResponse({'error': 'Doctor not found'}, status=404)
+        except Exception as e:
+            print(e)
+            return JsonResponse({'error': str(e)}, status=400)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
     
 
 def get_doctors(request):
     '''
     Get all doctors
     GET /doctor/all/
+    returns
+    [
+        {
+            "doctor_id": 1,
+            "name": "name",
+            "profile_picture": "image",
+            "gender": "gender"
+            "specialization": "specialization",
+            "experience": 1,
+            "address": "address"
+        }
+    ]
     '''
     if request.method == 'GET':
         doctors = Doctor.objects.all()
@@ -624,6 +652,7 @@ def get_doctors(request):
         doctor_list = [{
             'doctor_id': doctor.doctor_id,
             'name': doctor.name,
+            'profile_picture': request.build_absolute_uri(doctor.profile_picture.url),
             'gender': doctor.gender,
             'specialization': doctor.specialization,
             'experience': doctor.experience,
@@ -648,9 +677,179 @@ def get_assistants(request):
             'name': assistant.name,
             'latitude': assistant.latitude,
             'longitude': assistant.longitude,
-            'profile_picture': assistant.profile_picture.url,
+            'profile_picture': request.build_absolute_uri(assistant.profile_picture.url),
             'number': assistant.number,
         } for assistant in assistants]
 
         return JsonResponse(assistant_list, safe=False, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+@csrf_exempt
+def post_feed(request):
+    '''
+    Post to news feed
+    POST /user/feed/post/
+    {
+        "user_id": 1,
+        "content": "content",
+        "image": FILE
+    }
+    '''
+    if request.method == 'POST':
+        try:
+            data = request.POST.dict()
+            #print(data.get('user_id'))
+            post = Post.objects.create(
+                user=User.objects.get(user_id=data.get('user_id')),
+                content=data.get('content'),
+                media=request.FILES.get('image'),
+            )
+            return JsonResponse({'message': 'Post added successfully', 'post_id': post.id}, status=201)
+        except Exception as e:
+            print(e)
+            return JsonResponse({'error': str(e)}, status=400)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+def comment(request):
+    '''
+    Comment on a post
+    POST /user/feed/comment/
+    {
+        "user_id": 1,
+        "post_id": 1,
+        "content": "content"
+    }
+    '''
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            comment = Comment.objects.create(
+                user=User.objects.get(user_id=data.get('user_id')),
+                post=Post.objects.get(id=data.get('post_id')),
+                content=data.get('content')
+            )
+            notification = Notification.objects.create(
+                user=comment.post.user,
+                content=f'{comment.user.name} commented on your post',
+                read=False,
+                post=comment.post
+            )
+            return JsonResponse({'message': 'Comment added successfully', 'comment_id': comment.id}, status=201)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+def get_all_notifications(request, user_id):
+    '''
+    Get all notifications for a user
+    GET /user/notifications/all/id/
+    '''
+    if request.method == 'GET':
+        try:
+            user = User.objects.get(user_id=user_id)
+            notifications = Notification.objects.filter(user=user)
+            if not notifications:
+                return JsonResponse({'message': 'No notifications found'}, status=204)
+            notification_list = [{
+                'notification_id': notification.id,
+                'content': notification.content,
+                'created_at': notification.created_at,
+                'post_id': notification.post.id if notification.post else None
+            } for notification in notifications]
+            return JsonResponse(notification_list, safe=False, status=200)
+        except User.DoesNotExist:
+            return JsonResponse({'error': 'User not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+@csrf_exempt
+def get_post(request,post_id):
+    '''
+    Get a post by post id
+    GET /user/feed/id/
+
+    '''
+    if request.method == 'GET':
+        try:
+            post = Post.objects.get(id=post_id)
+            comments = Comment.objects.filter(post=post)
+            comment_list = []
+            for comment in comments:
+                comment_list.append({
+                    'comment_id': comment.id,
+                    'user_id': comment.user.user_id,
+                    'user_name': comment.user.name,
+                    'content': comment.content,
+                    'created_at': comment.created_at
+                })
+            return JsonResponse({
+                'post_id': post.id,
+                'user_id': post.user.user_id,
+                'user_name': post.user.name,
+                'content': post.content,
+                'image': post.image.url if post.image else None,
+                'created_at': post.created_at,
+                'comments': comment_list
+            }, status=200)
+        except Post.DoesNotExist:
+            return JsonResponse({'error': 'Post not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+@csrf_exempt
+def get_all_posts(request):
+    '''
+    Get all posts
+    GET /user/feed/all/
+    returns 
+    [
+        {
+            "post_id": 1,
+            "user_id": 1,
+            "user_name": "name",
+            "user_image" : "image",
+            "content": "content",
+            "image": "image",
+            "created_at": "2022-01-01T00:00:00Z",
+            "comments": [
+                {
+                    "comment_id": 1,
+                    "user_id": 1,
+                    "user_name": "name",
+                    'user_image': 'image',
+                    "content": "content",
+                    "created_at": "2022-01-01T00:00:00Z"
+                }
+            ]
+        }
+    ]
+    '''
+    if request.method=='GET':
+        posts = Post.objects.all()
+        post_list = []
+        for post in posts:
+            comments = Comment.objects.filter(post=post)
+            comment_list = []
+            for comment in comments:
+                comment_list.append({
+                    'comment_id': comment.id,
+                    'user_id': comment.user.user_id,
+                    'user_name': comment.user.name,
+                    'user_image': request.build_absolute_uri(comment.user.profile_picture.url),
+                    'content': comment.content,
+                    'created_at': comment.created_at
+                })
+            post_list.append({
+                'post_id': post.id,
+                'user_id': post.user.user_id,
+                'user_name': post.user.name,
+                'user_image': request.build_absolute_uri(post.user.profile_picture.url),
+                'content': post.content,
+                'image': request.build_absolute_uri(post.media.url if post.media else None),
+                'created_at': post.created_at,
+                'comments': comment_list
+            })
+        return JsonResponse(post_list, safe=False, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)

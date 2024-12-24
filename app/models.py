@@ -73,3 +73,18 @@ class Post(models.Model):
     media = models.ImageField(upload_to='posts/', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     liked_by = models.ManyToManyField(User, related_name='liked_posts', blank=True)
+    
+class Comment(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    post = models.ForeignKey(Post, on_delete=models.CASCADE)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+class Notification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False)
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, null=True, blank=True)
+
+
