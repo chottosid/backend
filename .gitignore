@@ -1,0 +1,27 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+*.egg-info/
+build/
+dist/
+
+# Virtual environments
+venv/
+.env/
+.venv/
+env/
+
+# Django / Flask / others
+*.sqlite3
+db.sqlite3
+instance/
+media/
+staticfiles/
+
+# Editor / OS files
+*.swp
+.DS_Store
+Thumbs.db
