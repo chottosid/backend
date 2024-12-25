@@ -41,9 +41,10 @@ urlpatterns = [
     path("pending/completed/", views.completed_request),
     path("user/feed/post/", views.post_feed),
     path("user/feed/comment/", views.comment),
-    path("user/notifications/all/<int:usr_id>/", views.get_all_notifications),
+    path("user/notifications/all/<int:user_id>/", views.get_all_notifications),
     path("user/feed/<int:post_id>/", views.get_post),
-    path("user/feed/all/", views.get_all_posts),
+    path("user/feed/all/<int:uid>/", views.get_all_posts),
+    path("user/feed/like/", views.like_post),
 ]
 
 # Serve media files

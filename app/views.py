@@ -733,7 +733,7 @@ def comment(request):
             notification = Notification.objects.create(
                 user=comment.post.user,
                 content=f'{comment.user.name} commented on your post',
-                read=False,
+                is_read=False,
                 post=comment.post
             )
             return JsonResponse({'message': 'Comment added successfully', 'comment_id': comment.id}, status=201)
@@ -746,11 +746,21 @@ def get_all_notifications(request, user_id):
     '''
     Get all notifications for a user
     GET /user/notifications/all/id/
+    returns
+    [
+        {
+            "notification_id": 1,
+            "content": "content",
+            "created_at": "2022-01-01T00:00:00Z",
+            "post_id": 1
+        }
+    ]
+
     '''
     if request.method == 'GET':
         try:
             user = User.objects.get(user_id=user_id)
-            notifications = Notification.objects.filter(user=user)
+            notifications = Notification.objects.filter(user=user, is_read=False)
             if not notifications:
                 return JsonResponse({'message': 'No notifications found'}, status=204)
             notification_list = [{
@@ -799,10 +809,10 @@ def get_post(request,post_id):
             return JsonResponse({'error': str(e)}, status=400)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 @csrf_exempt
-def get_all_posts(request):
+def get_all_posts(request,uid):
     '''
     Get all posts
-    GET /user/feed/all/
+    GET /user/feed/all/<int:uid>
     returns 
     [
         {
@@ -822,16 +832,20 @@ def get_all_posts(request):
                     "content": "content",
                     "created_at": "2022-01-01T00:00:00Z"
                 }
-            ]
+            ],
+            likes: 3,
+            liked: true
         }
     ]
     '''
     if request.method=='GET':
-        posts = Post.objects.all()
+        #get posts sorted by created_at
+        posts = Post.objects.all().order_by('-created_at')
         post_list = []
         for post in posts:
             comments = Comment.objects.filter(post=post)
             comment_list = []
+            like_cnt = post.liked_by.count()
             for comment in comments:
                 comment_list.append({
                     'comment_id': comment.id,
@@ -849,7 +863,47 @@ def get_all_posts(request):
                 'content': post.content,
                 'image': request.build_absolute_uri(post.media.url if post.media else None),
                 'created_at': post.created_at,
-                'comments': comment_list
+                'comments': comment_list,
+                'likes': like_cnt,
+                'liked': post.liked_by.filter(user_id=uid).exists()
             })
         return JsonResponse(post_list, safe=False, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+def like_post(request):
+    '''
+    Like a post
+    POST /user/feed/like/
+    {
+        "user_id": 1,
+        "post_id": 1
+    }
+    '''
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            post = Post.objects.get(id=data.get('post_id'))
+            #check if user already liked the post
+            if post.liked_by.filter(user_id=data.get('user_id')).exists():
+                #unlike the post
+                post.liked_by.remove(data.get('user_id'))
+            else:
+                #like the post
+                post.liked_by.add(data.get('user_id'))
+                # create a notification
+                notification = Notification.objects.create(
+                    user=post.user,
+                    content=f'{User.objects.get(user_id=data.get("user_id")).name} liked your post',
+                    is_read=False,
+                    post=post
+                )
+            post.save()
+            return JsonResponse({'message': 'Successfully'}, status=200)
+        except Post.DoesNotExist:
+            return JsonResponse({'error': 'Post not found'}, status=404)
+        except User.DoesNotExist:
+            return JsonResponse({'error': 'User not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
     return JsonResponse({'error': 'Invalid request method'}, status=405)

@@ -72,6 +72,9 @@ class Post(models.Model):
     content = models.TextField()
     media = models.ImageField(upload_to='posts/', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    #one post can be liked by multiple users
+    #one user can like multiple posts
+    #but a user can like a post only once
     liked_by = models.ManyToManyField(User, related_name='liked_posts', blank=True)
     
 class Comment(models.Model):
